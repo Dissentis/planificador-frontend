@@ -2,8 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'weekly_planner_screen.dart';
+import 'monthly_planner_screen.dart';
 import 'classes_subjects_screen.dart';
-import 'meetings_list_screen.dart'; // <-- IMPORTACIÓN CORREGIDA
+import 'meetings_list_screen.dart';
 import 'profile_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -18,8 +19,9 @@ class _MainScreenState extends State<MainScreen> {
 
   static final List<Widget> _widgetOptions = <Widget>[
     const WeeklyPlannerScreen(),
+    const MonthlyPlannerScreen(),
     const ClassesSubjectsScreen(),
-    const MeetingsListScreen(), // <-- PANTALLA CORREGIDA
+    const MeetingsListScreen(),
     const ProfileScreen(),
   ];
 
@@ -35,7 +37,8 @@ class _MainScreenState extends State<MainScreen> {
       body: _widgetOptions.elementAt(_selectedIndex),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.checklist), label: 'Planificación'),
+          BottomNavigationBarItem(icon: Icon(Icons.view_week), label: 'Semanal'),
+          BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'Mensual'),
           BottomNavigationBarItem(icon: Icon(Icons.class_), label: 'Clases'),
           BottomNavigationBarItem(icon: Icon(Icons.groups), label: 'Reuniones'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
@@ -48,4 +51,4 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
-}
+} // <-- ESTA ES LA LLAVE QUE FALTABA

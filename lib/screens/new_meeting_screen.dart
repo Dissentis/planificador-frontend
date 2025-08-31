@@ -1,14 +1,17 @@
 // lib/screens/new_meeting_screen.dart
+// === INICIO MODIFICACIÓN: La pantalla ahora acepta un acta para funcionar en modo "Crear" o "Editar". ===
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/meeting_model.dart';
+import '../services/storage_service.dart';
 
-// --- NOMBRE DE LA CLASE CORREGIDO ---
 class NewMeetingScreen extends StatefulWidget {
-  const NewMeetingScreen({super.key});
+  final Meeting? meetingToEdit; // El acta a editar (puede ser nula si estamos creando una nueva).
+  final int? meetingIndex;      // El índice del acta en la lista.
+
+  const NewMeetingScreen({super.key, this.meetingToEdit, this.meetingIndex});
 
   @override
   State<NewMeetingScreen> createState() => _NewMeetingScreenState();
@@ -22,6 +25,21 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
   final _agreementsController = TextEditingController();
   
   DateTime? _selectedDate;
+  bool get _isEditing => widget.meetingToEdit != null; // Propiedad para saber si estamos editando.
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditing) {
+      // Si estamos editando, rellenamos los campos con los datos del acta.
+      final meeting = widget.meetingToEdit!;
+      _titleController.text = meeting.title;
+      _dateController.text = meeting.date;
+      _attendeesController.text = meeting.attendees;
+      _topicsController.text = meeting.topics;
+      _agreementsController.text = meeting.agreements;
+    }
+  }
 
   @override
   void dispose() {
@@ -48,31 +66,33 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
     }
   }
 
-  Future<void> _saveMeetingDraft() async {
+  Future<void> _saveMeeting() async {
     if (_titleController.text.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('El título es obligatorio.')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('El título es obligatorio.')));
         return;
     }
 
-    final newMeeting = Meeting(
+    final updatedMeeting = Meeting(
       title: _titleController.text,
       date: _dateController.text,
       attendees: _attendeesController.text,
       topics: _topicsController.text,
       agreements: _agreementsController.text,
     );
-
-    final prefs = await SharedPreferences.getInstance();
-    final existingMeetings = prefs.getStringList('meeting_drafts') ?? [];
-    existingMeetings.add(jsonEncode(newMeeting.toJson()));
-    await prefs.setStringList('meeting_drafts', existingMeetings);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Borrador de acta guardado.')),
-    );
     
+    final meetings = await StorageService.loadMeetings();
+
+    if (_isEditing) {
+      // Si estamos editando, reemplazamos el acta en su índice.
+      meetings[widget.meetingIndex!] = updatedMeeting;
+    } else {
+      // Si no, añadimos una nueva.
+      meetings.add(updatedMeeting);
+    }
+    
+    await StorageService.saveMeetings(meetings);
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Acta guardada con éxito.')));
     Navigator.of(context).pop(true);
   }
 
@@ -81,7 +101,8 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Nueva Acta', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
+        // El título cambia dependiendo de si estamos creando o editando.
+        title: Text(_isEditing ? 'Editar Acta' : 'Nueva Acta', style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
         centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 1.0,
@@ -106,6 +127,7 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
     );
   }
 
+  // Los widgets de construcción no cambian de contenido, solo se actualiza el `onPressed` del botón.
   Widget _buildTextField({required String label, required TextEditingController controller, int maxLines = 1}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,8 +181,8 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           TextButton(
-            onPressed: _saveMeetingDraft,
-            child: const Text('Guardar Borrador', style: TextStyle(color: Colors.black87)),
+            onPressed: _saveMeeting, // Se llama a la función de guardado general.
+            child: const Text('Guardar', style: TextStyle(color: Colors.black87)),
           ),
           const SizedBox(width: 16),
           ElevatedButton.icon(
@@ -179,3 +201,4 @@ class _NewMeetingScreenState extends State<NewMeetingScreen> {
     );
   }
 }
+// === FIN MODIFICACIÓN ===

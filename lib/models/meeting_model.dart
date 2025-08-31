@@ -1,4 +1,5 @@
 // lib/models/meeting_model.dart
+// === INICIO MODIFICACIÓN: Se asegura que el archivo contenga únicamente la definición de la clase Meeting. ===
 
 import 'dart:convert';
 
@@ -17,7 +18,6 @@ class Meeting {
     required this.agreements,
   });
 
-  // Convierte un objeto Meeting a un Mapa (para luego convertir a JSON)
   Map<String, dynamic> toJson() {
     return {
       'title': title,
@@ -28,7 +28,6 @@ class Meeting {
     };
   }
 
-  // Crea un objeto Meeting desde un Mapa (leído de un JSON)
   factory Meeting.fromJson(Map<String, dynamic> json) {
     return Meeting(
       title: json['title'] ?? '',
@@ -39,3 +38,4 @@ class Meeting {
     );
   }
 }
+// === FIN MODIFICACIÓN ===

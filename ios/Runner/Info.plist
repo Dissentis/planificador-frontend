@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Esta aplicación necesita acceso a tu galería para que puedas seleccionar imágenes para tus documentos.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Esta aplicación necesita acceso a tu cámara para que puedas tomar fotos para tus documentos.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Esta aplicación necesita acceso a tu micrófono para grabar vídeos para tus documentos.</string>
 </dict>
 </plist>

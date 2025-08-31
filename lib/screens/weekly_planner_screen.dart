@@ -1,19 +1,18 @@
 // lib/screens/weekly_planner_screen.dart
+// === INICIO MODIFICACIÓN: El EventCard ahora muestra 'subject' y 'className'. ===
 
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import '../models/planner_event.dart';
-import 'classes_subjects_screen.dart'; // <-- Asegúrate de que esta importación esté.
+import '../services/event_service.dart';
+import 'event_editor_screen.dart';
 
-// El widget para las tarjetas de evento no cambia.
 class EventCard extends StatelessWidget {
   final PlannerEvent event;
   const EventCard({super.key, required this.event});
 
   @override
   Widget build(BuildContext context) {
-    final colors = _getEventColors(event.title);
+    final colors = _getEventColors(event.subject); // Usa 'subject' para el color.
     return Container(
       padding: const EdgeInsets.all(8.0),
       decoration: BoxDecoration(
@@ -23,7 +22,9 @@ class EventCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(event.title, style: TextStyle(fontWeight: FontWeight.bold, color: colors['text'], fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(event.subject, style: TextStyle(fontWeight: FontWeight.bold, color: colors['text'], fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 2),
+          Text(event.className, style: TextStyle(color: colors['text']!.withOpacity(0.9), fontSize: 11, fontStyle: FontStyle.italic)),
           const SizedBox(height: 4),
           Text(event.subtitle, style: TextStyle(color: colors['text']!.withOpacity(0.8), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
@@ -31,8 +32,8 @@ class EventCard extends StatelessWidget {
     );
   }
 
-  Map<String, Color> _getEventColors(String title) {
-    switch (title.toLowerCase()) {
+  Map<String, Color> _getEventColors(String subject) {
+    switch (subject.toLowerCase()) {
       case 'matemáticas':
         return {'background': const Color(0xFFE0F2FE), 'text': const Color(0xFF0C4A6E)};
       case 'historia':
@@ -45,7 +46,8 @@ class EventCard extends StatelessWidget {
   }
 }
 
-
+// El resto de la clase WeeklyPlannerScreen no necesita cambios en su lógica,
+// solo se beneficia de las actualizaciones del modelo y la tarjeta.
 class WeeklyPlannerScreen extends StatefulWidget {
   const WeeklyPlannerScreen({super.key});
 
@@ -54,26 +56,32 @@ class WeeklyPlannerScreen extends StatefulWidget {
 }
 
 class _WeeklyPlannerScreenState extends State<WeeklyPlannerScreen> {
-  late Future<List<PlannerEvent>> _eventsFuture;
+  List<PlannerEvent> _allEvents = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _eventsFuture = _fetchEvents();
+    _refreshEvents();
   }
 
-  Future<List<PlannerEvent>> _fetchEvents() async {
-    const String apiUrl = 'https://TU_API_AQUI.com/events';
-    try {
-      final response = await http.get(Uri.parse(apiUrl));
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        return data.map((json) => PlannerEvent.fromJson(json)).toList();
-      } else {
-        throw Exception('Error al cargar los eventos del servidor.');
-      }
-    } catch (e) {
-      throw Exception('Error de conexión. Revisa tu conexión a internet.');
+  Future<void> _refreshEvents() async {
+    setState(() { _isLoading = true; });
+    final events = await EventService.fetchEvents();
+    if (mounted) {
+      setState(() {
+        _allEvents = events;
+        _isLoading = false;
+      });
+    }
+  }
+  
+  void _navigateToEditor({PlannerEvent? event}) async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => EventEditorScreen(eventToEdit: event)),
+    );
+    if (result == true) {
+      _refreshEvents();
     }
   }
 
@@ -82,52 +90,40 @@ class _WeeklyPlannerScreenState extends State<WeeklyPlannerScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF5A6B7B)),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        automaticallyImplyLeading: false,
         title: const Text('Planificación Semanal', style: TextStyle(color: Color(0xFF1D2939), fontWeight: FontWeight.bold, fontSize: 20)),
         centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 1.0,
-        
       ),
-      body: FutureBuilder<List<PlannerEvent>>(
-        future: _eventsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('${snapshot.error}'));
-          }
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No hay eventos planificados.'));
-          }
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _buildPlannerBody(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _navigateToEditor(),
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
 
-          final events = snapshot.data!;
-          final timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00'];
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                _buildDaysHeader(),
-                const SizedBox(height: 8),
-                ...timeSlots.map((time) => _buildTimeSlotRow(time, events)),
-              ],
-            ),
-          );
-        },
+  Widget _buildPlannerBody() {
+    final timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00'];
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          _buildDaysHeader(),
+          const SizedBox(height: 8),
+          ...timeSlots.map((time) => _buildTimeSlotRow(time, _allEvents)),
+        ],
       ),
     );
   }
 
   Widget _buildDaysHeader() {
-    final List<String> days = ['L', 'M', 'X', 'J', 'V'];
     return Row(children: [
       const SizedBox(width: 60),
-      ...days.map((day) => Expanded(child: Text(day, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)))),
+      ...['L', 'M', 'X', 'J', 'V'].map((day) => Expanded(child: Text(day, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)))),
     ]);
   }
 
@@ -135,19 +131,28 @@ class _WeeklyPlannerScreenState extends State<WeeklyPlannerScreen> {
     final List<String> days = ['L', 'M', 'X', 'J', 'V'];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        SizedBox(width: 60, child: Text(time, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
-        ...days.map((day) {
-          final event = allEvents.firstWhere((e) => e.time == time && e.day == day,
-              orElse: () => PlannerEvent(title: '', subtitle: '', time: '', day: ''));
-          return Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0),
-              child: event.title.isNotEmpty ? EventCard(event: event) : Container(),
-            ),
-          );
-        }),
-      ]),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 60, child: Text(time, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey))),
+          ...days.map((day) {
+            final event = allEvents.firstWhere((e) => e.time == time && e.day == day,
+                orElse: () => PlannerEvent(id: '', subject: '', subtitle: '', className: '', time: '', day: '', date: DateTime.now()));
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: event.subject.isNotEmpty
+                    ? GestureDetector(
+                        onTap: () => _navigateToEditor(event: event),
+                        child: EventCard(event: event),
+                      )
+                    : Container(height: 80), // Aumentamos la altura para mejor alineación
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 }
+// === FIN MODIFICACIÓN ===

@@ -1,6 +1,11 @@
 // lib/screens/profile_screen.dart
+// === INICIO MODIFICACIÓN: Se añade un botón para navegar a la pantalla de documentos. ===
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/user_model.dart';
+import 'documents_screen.dart'; // <-- AÑADE ESTA IMPORTACIÓN
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -10,39 +15,83 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Controladores para los campos del formulario
-  final _nameController = TextEditingController(text: 'Laura');
-  final _lastNameController = TextEditingController(text: 'García');
-  final _schoolController = TextEditingController(text: 'CEIP Cervantes');
-  // ... puedes añadir más controladores para los otros campos
+  UserModel _user = UserModel();
+  bool _isLoading = true;
+
+  final _nameController = TextEditingController();
+  final _lastNameController = TextEditingController();
+  final _schoolController = TextEditingController();
+  final _provinceController = TextEditingController();
+  final _communityController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfileData();
+  }
 
   @override
   void dispose() {
-    // Es buena práctica liberar los recursos de los controladores.
     _nameController.dispose();
     _lastNameController.dispose();
     _schoolController.dispose();
+    _provinceController.dispose();
+    _communityController.dispose();
     super.dispose();
   }
+
+  Future<void> _loadProfileData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? userJson = prefs.getString('user_profile');
+
+    if (userJson != null) {
+      _user = UserModel.fromJson(jsonDecode(userJson));
+    }
+
+    _nameController.text = _user.name;
+    _lastNameController.text = _user.lastName;
+    _schoolController.text = _user.school;
+    _provinceController.text = _user.province;
+    _communityController.text = _user.autonomousCommunity;
+
+    setState(() { _isLoading = false; });
+  }
+
+  Future<void> _saveProfileData() async {
+    _user.name = _nameController.text;
+    _user.lastName = _lastNameController.text;
+    _user.school = _schoolController.text;
+    _user.province = _provinceController.text;
+    _user.autonomousCommunity = _communityController.text;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_profile', jsonEncode(_user.toJson()));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Perfil guardado con éxito.')),
+    );
+    FocusScope.of(context).unfocus();
+  }
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC), // slate-50
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text('Perfil', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))), // slate-800
+        title: const Text('Perfil', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
         backgroundColor: const Color(0xFFF8FAFC),
         elevation: 0,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: ElevatedButton.icon(
-              onPressed: () { /* TODO: Lógica para guardar perfil */ },
+              onPressed: _saveProfileData,
               icon: const Icon(Icons.save, size: 20),
               label: const Text('Guardar'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0D93F2), // primary-color
+                backgroundColor: const Color(0xFF0D93F2),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
@@ -50,37 +99,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
           )
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            bool isWide = constraints.maxWidth > 700;
-            if (isWide) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(flex: 2, child: _buildProfileCard()),
-                  const SizedBox(width: 24),
-                  Expanded(flex: 3, child: _buildFormCard()),
-                ],
-              );
-            } else {
-              return Column(
-                children: [
-                  _buildProfileCard(),
-                  const SizedBox(height: 24),
-                  _buildFormCard(),
-                ],
-              );
-            }
-          },
-        ),
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator())
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                bool isWide = constraints.maxWidth > 700;
+                if (isWide) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 2, child: _buildProfileCard()),
+                      const SizedBox(width: 24),
+                      Expanded(flex: 3, child: _buildFormCard()),
+                    ],
+                  );
+                } else {
+                  return Column(
+                    children: [
+                      _buildProfileCard(),
+                      const SizedBox(height: 24),
+                      _buildFormCard(),
+                    ],
+                  );
+                }
+              },
+            ),
       ),
     );
   }
 
-  // Widget para la tarjeta de la foto de perfil
   Widget _buildProfileCard() {
+    String displayName = _nameController.text.isNotEmpty || _lastNameController.text.isNotEmpty
+        ? '${_nameController.text} ${_lastNameController.text}'.trim()
+        : 'Nombre Apellido';
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
       decoration: BoxDecoration(
@@ -94,7 +148,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               const CircleAvatar(
                 radius: 70,
-                // Puedes usar NetworkImage para cargar una imagen desde una URL
                 backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=lauragarcia'),
               ),
               Positioned(
@@ -105,14 +158,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   backgroundColor: const Color(0xFF0D93F2),
                   child: IconButton(
                     icon: const Icon(Icons.edit, color: Colors.white, size: 20),
-                    onPressed: () { /* TODO: Lógica para cambiar foto */ },
+                    onPressed: () {},
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          const Text('Laura García', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+          Text(displayName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
           const SizedBox(height: 4),
           const Text('Profesora de Primaria', style: TextStyle(fontSize: 16, color: Colors.grey)),
         ],
@@ -120,7 +173,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Widget para la tarjeta del formulario de datos
   Widget _buildFormCard() {
     return Container(
       padding: const EdgeInsets.all(24.0),
@@ -130,6 +182,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10)],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildFormTextField(label: 'Nombre', controller: _nameController),
           const SizedBox(height: 16),
@@ -137,15 +190,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           _buildFormTextField(label: 'Centro Escolar', controller: _schoolController),
           const SizedBox(height: 16),
-          _buildFormTextField(label: 'Provincia', placeholder: 'Introduce tu provincia'),
+          _buildFormTextField(label: 'Provincia', controller: _provinceController, placeholder: 'Introduce tu provincia'),
           const SizedBox(height: 16),
-          _buildFormTextField(label: 'Comunidad Autónoma', placeholder: 'Introduce tu comunidad'),
+          _buildFormTextField(label: 'Comunidad Autónoma', controller: _communityController, placeholder: 'Introduce tu comunidad'),
+          const SizedBox(height: 24), // Espacio antes del nuevo botón
+          ElevatedButton.icon(
+            icon: const Icon(Icons.description),
+            label: const Text('Ver Mis Documentos'),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const DocumentsScreen()),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.grey.shade800,
+              backgroundColor: Colors.grey.shade200,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // Widget reutilizable para los campos de texto del formulario
   Widget _buildFormTextField({required String label, TextEditingController? controller, String? placeholder}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,17 +226,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             hintText: placeholder,
             filled: true,
             fillColor: const Color(0xFFF8FAFC),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
           ),
         ),
       ],
     );
   }
 }
+// === FIN MODIFICACIÓN ===
