@@ -1,7 +1,9 @@
 // lib/screens/classes_subjects_screen.dart
 
 import 'package:flutter/material.dart';
-import '../services/storage_service.dart'; // Importamos nuestro nuevo servicio
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+import '../services/file_storage_service.dart';
 
 class ClassesSubjectsScreen extends StatefulWidget {
   const ClassesSubjectsScreen({super.key});
@@ -11,68 +13,104 @@ class ClassesSubjectsScreen extends StatefulWidget {
 }
 
 class _ClassesSubjectsScreenState extends State<ClassesSubjectsScreen> {
-  // Las listas ahora empiezan vacías, se cargarán desde la memoria.
-  List<String> _subjects = [];
-  List<String> _classes = [];
-  bool _isLoading = true; // Para mostrar un indicador de carga al inicio.
+  List<FileSystemItem> _items = [];
+  List<String> _currentPath = []; // Para navegación de carpetas
+  bool _isLoading = true;
 
-  final TextEditingController _subjectController = TextEditingController();
-  final TextEditingController _classController = TextEditingController();
+  final TextEditingController _folderController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _loadData(); // Cargamos los datos cuando la pantalla se inicia.
+    _loadCurrentDirectory();
   }
 
-  Future<void> _loadData() async {
-    final data = await StorageService.loadLists();
+  Future<void> _loadCurrentDirectory() async {
+    setState(() => _isLoading = true);
+    final items = await FileStorageService.getDirectoryContents(_currentPath);
     setState(() {
-      _subjects = data['subjects']!;
-      _classes = data['classes']!;
+      _items = items;
       _isLoading = false;
     });
   }
 
-  // Wrapper para guardar los datos después de cada modificación.
-  Future<void> _saveData() async {
-    await StorageService.saveLists(_subjects, _classes);
-  }
-
-  void _addSubject() {
-    if (_subjectController.text.isNotEmpty) {
-      setState(() {
-        _subjects.add(_subjectController.text);
-      });
-      _subjectController.clear();
+  Future<void> _createFolder() async {
+    if (_folderController.text.isNotEmpty) {
+      await FileStorageService.createFolder(
+          [..._currentPath, _folderController.text]);
+      _folderController.clear();
       FocusScope.of(context).unfocus();
-      _saveData(); // Guardamos después de añadir.
+      _loadCurrentDirectory();
     }
   }
 
-  void _addClass() {
-    if (_classController.text.isNotEmpty) {
-      setState(() {
-        _classes.add(_classController.text);
-      });
-      _classController.clear();
-      FocusScope.of(context).unfocus();
-      _saveData(); // Guardamos después de añadir.
+  Future<void> _uploadFiles() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.custom,
+      allowedExtensions: [
+        'pdf',
+        'doc',
+        'docx',
+        'txt',
+        'xls',
+        'xlsx',
+        'ppt',
+        'pptx',
+        'jpg',
+        'png'
+      ],
+    );
+
+    if (result != null) {
+      for (PlatformFile file in result.files) {
+        if (file.bytes != null) {
+          await FileStorageService.uploadFile(
+              _currentPath, file.name, file.bytes!);
+        }
+      }
+      _loadCurrentDirectory();
     }
   }
 
-  void _removeSubject(int index) {
+  void _navigateToFolder(String folderName) {
     setState(() {
-      _subjects.removeAt(index);
+      _currentPath.add(folderName);
     });
-    _saveData(); // Guardamos después de borrar.
+    _loadCurrentDirectory();
   }
 
-  void _removeClass(int index) {
-    setState(() {
-      _classes.removeAt(index);
-    });
-    _saveData(); // Guardamos después de borrar.
+  void _navigateBack() {
+    if (_currentPath.isNotEmpty) {
+      setState(() {
+        _currentPath.removeLast();
+      });
+      _loadCurrentDirectory();
+    }
+  }
+
+  Future<void> _deleteItem(FileSystemItem item) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Eliminar ${item.isFolder ? 'carpeta' : 'archivo'}'),
+        content: Text('¿Estás seguro de que quieres eliminar "${item.name}"?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Eliminar')),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await FileStorageService.deleteItem(
+          [..._currentPath, item.name], item.isFolder);
+      _loadCurrentDirectory();
+    }
   }
 
   @override
@@ -81,152 +119,245 @@ class _ClassesSubjectsScreenState extends State<ClassesSubjectsScreen> {
       backgroundColor: const Color(0xFFF7F9FC),
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text('Clases y Materias', style: TextStyle(color: Color(0xFF111518), fontWeight: FontWeight.bold)),
+        title: const Text('Documentos',
+            style: TextStyle(
+                color: Color(0xFF111518), fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 1.0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.upload_file),
+            onPressed: _uploadFiles,
+            tooltip: 'Subir archivos',
+          ),
+        ],
       ),
-      // Si está cargando, muestra un círculo. Si no, muestra el contenido.
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  // ... el resto del código del layout no cambia ...
-                  bool isWideScreen = constraints.maxWidth > 600;
-                  if (isWideScreen) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: _buildSubjectsCard()),
-                        const SizedBox(width: 24),
-                        Expanded(child: _buildClassesCard()),
-                      ],
-                    );
-                  } else {
-                    return Column(
-                      children: [
-                        _buildSubjectsCard(),
-                        const SizedBox(height: 24),
-                        _buildClassesCard(),
-                      ],
-                    );
-                  }
-                },
-              ),
+          : Column(
+              children: [
+                _buildNavigationBar(),
+                _buildCreateFolderSection(),
+                Expanded(child: _buildFileList()),
+              ],
             ),
-    );
-  }
-
-  // Los widgets _buildSubjectsCard, _buildClassesCard y _buildCard no cambian.
-  // Pégalos aquí tal y como estaban en la versión anterior.
-
-  // Widget para la tarjeta de "Materias"
-  Widget _buildSubjectsCard() {
-    return _buildCard(
-      title: 'Materias',
-      items: _subjects,
-      controller: _subjectController,
-      onAdd: _addSubject,
-      onRemove: _removeSubject,
-      itemColor: const Color(0xFFE0F2FE),
-      textColor: const Color(0xFF0C4A6E),
-      buttonColor: const Color(0xFF0F9AF0)
-    );
-  }
-
-  // Widget para la tarjeta de "Clases"
-  Widget _buildClassesCard() {
-    return _buildCard(
-      title: 'Clases',
-      items: _classes,
-      controller: _classController,
-      onAdd: _addClass,
-      onRemove: _removeClass,
-      itemColor: const Color(0xFFE0E7FF),
-      textColor: const Color(0xFF3730A3),
-      buttonColor: const Color(0xFF89CFF0)
-    );
-  }
-
-  // Widget genérico reutilizable para construir una tarjeta
-  Widget _buildCard({
-    required String title,
-    required List<String> items,
-    required TextEditingController controller,
-    required VoidCallback onAdd,
-    required Function(int) onRemove,
-    required Color itemColor,
-    required Color textColor,
-    required Color buttonColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(24.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12.0),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.05), spreadRadius: 1, blurRadius: 10)],
+      floatingActionButton: FloatingActionButton(
+        onPressed: _uploadFiles,
+        backgroundColor: const Color(0xFF0F9AF0),
+        child: const Icon(Icons.add),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    );
+  }
+
+  Widget _buildNavigationBar() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      color: Colors.white,
+      child: Row(
         children: [
-          Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          ListView.builder(
-            itemCount: items.length,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(color: itemColor, borderRadius: BorderRadius.circular(8)),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(child: Text(items[index], style: TextStyle(color: textColor, fontWeight: FontWeight.w500))),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, color: Colors.grey),
-                        onPressed: () => onRemove(index),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 24),
-          Text('Añadir nueva ${title.toLowerCase().substring(0, title.length -1)}', style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  decoration: InputDecoration(
-                    hintText: 'Ej. Ciencias Naturales',
-                    filled: true,
-                    fillColor: Colors.grey.shade100,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: onAdd,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: buttonColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20)
-                ),
-                child: const Text('Guardar', style: TextStyle(color: Colors.white)),
-              ),
-            ],
+          if (_currentPath.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: _navigateBack,
+            ),
+          Expanded(
+            child: Text(
+              _currentPath.isEmpty ? 'Raíz' : _currentPath.join(' / '),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildCreateFolderSection() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 5)
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _folderController,
+              decoration: InputDecoration(
+                hintText: 'Nombre de la nueva carpeta',
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                prefixIcon: const Icon(Icons.folder),
+              ),
+              onSubmitted: (_) => _createFolder(),
+            ),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton(
+            onPressed: _createFolder,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0F9AF0),
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Crear', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFileList() {
+    if (_items.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.folder_open, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('No hay archivos ni carpetas',
+                style: TextStyle(color: Colors.grey, fontSize: 16)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _items.length,
+      itemBuilder: (context, index) {
+        final item = _items[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: Icon(
+              item.isFolder ? Icons.folder : _getFileIcon(item.name),
+              color: item.isFolder ? Colors.amber : Colors.blue,
+              size: 32,
+            ),
+            title: Text(
+              item.name,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+            subtitle: item.isFolder
+                ? const Text('Carpeta')
+                : Text(
+                    '${_getFileExtension(item.name).toUpperCase()} • ${_formatFileSize(item.size)}'),
+            onTap: item.isFolder
+                ? () => _navigateToFolder(item.name)
+                : () => _openFile(item),
+            trailing: PopupMenuButton(
+              icon: const Icon(Icons.more_vert),
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'delete',
+                  child: const Row(
+                    children: [
+                      Icon(Icons.delete),
+                      SizedBox(width: 8),
+                      Text('Eliminar')
+                    ],
+                  ),
+                ),
+                if (!item.isFolder)
+                  PopupMenuItem(
+                    value: 'download',
+                    child: const Row(
+                      children: [
+                        Icon(Icons.download),
+                        SizedBox(width: 8),
+                        Text('Descargar')
+                      ],
+                    ),
+                  ),
+              ],
+              onSelected: (value) {
+                switch (value) {
+                  case 'delete':
+                    _deleteItem(item);
+                    break;
+                  case 'download':
+                    _downloadFile(item);
+                    break;
+                }
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  IconData _getFileIcon(String fileName) {
+    final extension = _getFileExtension(fileName).toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'xls':
+      case 'xlsx':
+        return Icons.table_chart;
+      case 'ppt':
+      case 'pptx':
+        return Icons.slideshow;
+      case 'txt':
+        return Icons.text_snippet;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+        return Icons.image;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
+
+  String _getFileExtension(String fileName) {
+    return fileName.split('.').last;
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  void _openFile(FileSystemItem file) {
+    // Implementar apertura de archivo según el tipo
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Abriendo ${file.name}...')),
+    );
+  }
+
+  void _downloadFile(FileSystemItem file) {
+    // Implementar descarga de archivo
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Descargando ${file.name}...')),
+    );
+  }
+}
+
+// Modelo de datos para archivos y carpetas
+class FileSystemItem {
+  final String name;
+  final bool isFolder;
+  final int size;
+  final DateTime lastModified;
+
+  FileSystemItem({
+    required this.name,
+    required this.isFolder,
+    this.size = 0,
+    required this.lastModified,
+  });
 }

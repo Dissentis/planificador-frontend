@@ -1,4 +1,3 @@
-# === INICIO MODIFICACIÓN: Se corrige el formato de los comentarios y se ajusta la estructura. ===
 name: planificador_frontend
 description: "Una aplicación de planificación para docentes."
 publish_to: 'none'
@@ -13,19 +12,37 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-
   cupertino_icons: ^1.0.2
   http: ^1.2.1
   shared_preferences: ^2.2.3
   table_calendar: ^3.1.1
   intl: ^0.20.2
   image_picker: ^1.1.2
+  firebase_core: ^4.1.0
+  firebase_auth: ^6.0.2
+  flutter_riverpod: ^2.4.9
+
+  # SQLite dependencies
+  sqflite: ^2.3.0
+  sqflite_common_ffi: ^2.3.3
+  path: ^1.8.3
+
+  # Firebase Firestore for sync
+  cloud_firestore: ^6.0.1
+
+  # Firebase Messaging for notifications
+  firebase_messaging: ^16.0.1
+
+  # AÑADIR: Para el gestor de archivos
+  file_picker: ^6.1.1        # Selección de archivos
+  path_provider: ^2.1.1      # Rutas del sistema (#67)
+  url_launcher: ^6.2.2       # Abrir/descargar archivos
+  mime: ^1.0.4               # Tipos de archivo
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
-# === FIN MODIFICACIÓN ===

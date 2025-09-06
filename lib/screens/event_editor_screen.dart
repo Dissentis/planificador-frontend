@@ -17,7 +17,7 @@ class EventEditorScreen extends StatefulWidget {
 
 class _EventEditorScreenState extends State<EventEditorScreen> {
   final _formKey = GlobalKey<FormState>();
-  
+
   // Listas para las opciones de los desplegables.
   List<String> _availableSubjects = [];
   List<String> _availableClasses = [];
@@ -62,8 +62,10 @@ class _EventEditorScreenState extends State<EventEditorScreen> {
       _selectedDay = _daySlots.first;
       _selectedDate = DateTime.now();
     }
-    
-    setState(() { _isLoadingLists = false; });
+
+    setState(() {
+      _isLoadingLists = false;
+    });
   }
 
   Future<void> _saveEvent() async {
@@ -71,7 +73,9 @@ class _EventEditorScreenState extends State<EventEditorScreen> {
       _formKey.currentState!.save();
 
       final newEvent = PlannerEvent(
-        id: _isEditing ? widget.eventToEdit!.id : DateTime.now().toIso8601String(),
+        eventId: _isEditing
+            ? widget.eventToEdit!.eventId
+            : DateTime.now().toIso8601String(),
         subject: _subject,
         subtitle: _subtitle,
         className: _className,
@@ -106,39 +110,90 @@ class _EventEditorScreenState extends State<EventEditorScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     DropdownButtonFormField<String>(
-                      value: _availableSubjects.contains(_subject) ? _subject : null,
-                      items: _availableSubjects.map((subject) => DropdownMenuItem(value: subject, child: Text(subject))).toList(),
+                      value: _availableSubjects.contains(_subject)
+                          ? _subject
+                          : null,
+                      items: _availableSubjects
+                          .map(
+                            (subject) => DropdownMenuItem(
+                              value: subject,
+                              child: Text(subject),
+                            ),
+                          )
+                          .toList(),
                       onChanged: (value) => setState(() => _subject = value!),
-                      decoration: const InputDecoration(labelText: 'Materia', border: OutlineInputBorder()),
-                      validator: (value) => value == null || value.isEmpty ? 'Debes seleccionar una materia' : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Materia',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Debes seleccionar una materia'
+                          : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       initialValue: _subtitle,
-                      decoration: const InputDecoration(labelText: 'Subtítulo (Opcional)', border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        labelText: 'Subtítulo (Opcional)',
+                        border: OutlineInputBorder(),
+                      ),
                       onSaved: (value) => _subtitle = value ?? '',
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: _availableClasses.contains(_className) ? _className : null,
-                      items: _availableClasses.map((className) => DropdownMenuItem(value: className, child: Text(className))).toList(),
+                      value: _availableClasses.contains(_className)
+                          ? _className
+                          : null,
+                      items: _availableClasses
+                          .map(
+                            (className) => DropdownMenuItem(
+                              value: className,
+                              child: Text(className),
+                            ),
+                          )
+                          .toList(),
                       onChanged: (value) => setState(() => _className = value!),
-                      decoration: const InputDecoration(labelText: 'Clase', border: OutlineInputBorder()),
-                      validator: (value) => value == null || value.isEmpty ? 'Debes seleccionar una clase' : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Clase',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) => value == null || value.isEmpty
+                          ? 'Debes seleccionar una clase'
+                          : null,
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       value: _selectedTime,
-                      items: _timeSlots.map((time) => DropdownMenuItem(value: time, child: Text(time))).toList(),
-                      onChanged: (value) => setState(() => _selectedTime = value!),
-                      decoration: const InputDecoration(labelText: 'Hora', border: OutlineInputBorder()),
+                      items: _timeSlots
+                          .map(
+                            (time) => DropdownMenuItem(
+                              value: time,
+                              child: Text(time),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _selectedTime = value!),
+                      decoration: const InputDecoration(
+                        labelText: 'Hora',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       value: _selectedDay,
-                      items: _daySlots.map((day) => DropdownMenuItem(value: day, child: Text(day))).toList(),
-                      onChanged: (value) => setState(() => _selectedDay = value!),
-                      decoration: const InputDecoration(labelText: 'Día', border: OutlineInputBorder()),
+                      items: _daySlots
+                          .map(
+                            (day) =>
+                                DropdownMenuItem(value: day, child: Text(day)),
+                          )
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _selectedDay = value!),
+                      decoration: const InputDecoration(
+                        labelText: 'Día',
+                        border: OutlineInputBorder(),
+                      ),
                     ),
                     const SizedBox(height: 32),
                     ElevatedButton(

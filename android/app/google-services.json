@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "23073331643",
+    "project_id": "planificador-docente-a32f9",
+    "storage_bucket": "planificador-docente-a32f9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:23073331643:android:cb3e0d536b2628cb200c9e",
+        "android_client_info": {
+          "package_name": "com.example.planificador_frontend"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBJYDue850nNyOue7B1CfsTdTSppbM93wQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
